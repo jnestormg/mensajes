@@ -1,0 +1,338 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+    --color-bg: #0f172a;
+    --color-sidebar: #1e293b;
+    --color-surface: #334155;
+    --color-text: #e2e8f0;
+    --color-text-muted: #94a3b8;
+    --color-border: #334155;
+    --color-success: #22c55e;
+    --color-error: #ef4444;
+}
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    height: 100vh;
+    overflow: hidden;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 0.4rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.btn-primary {
+    background-color: var(--color-primary);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Pantalla de inicio de sesión */
+.login-screen {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-bg);
+}
+
+.login-box {
+    background-color: var(--color-sidebar);
+    padding: 2.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    width: 90%;
+    max-width: 380px;
+}
+
+.login-box h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.login-box p {
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.login-box input {
+    width: 100%;
+    padding: 0.7rem;
+    margin: 1rem 0;
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    font-size: 1rem;
+    text-align: center;
+}
+
+.login-box input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.error-message {
+    color: var(--color-error);
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+}
+
+.login-box .btn {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+/* Aplicación */
+.app-screen {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 1.5rem;
+    background-color: var(--color-sidebar);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.app-header h1 {
+    font-size: 1.2rem;
+}
+
+.current-user {
+    color: var(--color-success);
+    font-weight: 600;
+}
+
+.app-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.sidebar {
+    width: 260px;
+    background-color: var(--color-sidebar);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.sidebar h2 {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    padding: 1rem;
+    letter-spacing: 0.05em;
+}
+
+.clients-list {
+    list-style: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 0.5rem;
+}
+
+.client-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    margin-bottom: 0.3rem;
+    transition: background-color 0.15s ease;
+}
+
+.client-item:hover {
+    background-color: var(--color-surface);
+}
+
+.client-item.selected {
+    background-color: var(--color-primary);
+}
+
+.client-item .client-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.client-item .client-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-success);
+    flex-shrink: 0;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.connection-status .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-success);
+}
+
+.connection-status.disconnected .status-dot {
+    background-color: var(--color-error);
+}
+
+/* Área de chat */
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.chat-header {
+    padding: 0.8rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    font-weight: 600;
+}
+
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.message {
+    max-width: 70%;
+    padding: 0.6rem 0.9rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-surface);
+    word-wrap: break-word;
+}
+
+.message.sent {
+    align-self: flex-end;
+    background-color: var(--color-primary);
+}
+
+.message.received {
+    align-self: flex-start;
+}
+
+.message .message-meta {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.2rem;
+}
+
+.message.sent .message-meta {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.message .message-text {
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+}
+
+.system-message {
+    align-self: center;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    background-color: transparent;
+    padding: 0.3rem 0.8rem;
+    text-align: center;
+}
+
+/* Formulario de mensaje */
+.message-form {
+    display: flex;
+    gap: 0.6rem;
+    padding: 1rem;
+    border-top: 1px solid var(--color-border);
+    background-color: var(--color-sidebar);
+}
+
+.message-form input {
+    flex: 1;
+    padding: 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    font-size: 1rem;
+}
+
+.message-form input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .sidebar {
+        width: 160px;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-body {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 180px;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .clients-list {
+        display: flex;
+        overflow-x: auto;
+    }
+
+    .client-item {
+        flex-shrink: 0;
+    }
+}

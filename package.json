@@ -1,0 +1,23 @@
+{
+  "name": "lan-messenger",
+  "version": "1.0.0",
+  "description": "Sistema de mensajeria LAN entre computadoras Windows y Linux",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": [
+    "lan",
+    "messenger",
+    "socket.io",
+    "express"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
+  }
+}

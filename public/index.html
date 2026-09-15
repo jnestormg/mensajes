@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mensajería LAN</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="login-screen" class="login-screen">
+        <div class="login-box">
+            <h1>Mensajería LAN</h1>
+            <p>Nombre de esta computadora:</p>
+            <input type="text" id="name-input" maxlength="30" placeholder="Ej: PC-02" autocomplete="off">
+            <p id="login-error" class="error-message hidden"></p>
+            <button id="connect-btn" class="btn btn-primary">Conectar</button>
+        </div>
+    </div>
+
+    <div id="app-screen" class="app-screen hidden">
+        <header class="app-header">
+            <h1>Mensajería LAN</h1>
+            <span id="current-user" class="current-user"></span>
+        </header>
+
+        <div class="app-body">
+            <aside class="sidebar">
+                <h2>CLIENTES CONECTADOS</h2>
+                <ul id="clients-list" class="clients-list"></ul>
+                <div id="connection-status" class="connection-status connected">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Conectado</span>
+                </div>
+            </aside>
+
+            <main class="chat-area">
+                <div id="chat-header" class="chat-header">Selecciona un destino</div>
+
+                <div id="messages-container" class="messages-container"></div>
+
+                <div class="message-form">
+                    <input type="text" id="message-input" maxlength="1000" placeholder="Escribe un mensaje..." autocomplete="off">
+                    <input type="hidden" id="target-input" value="ALL">
+                    <button id="send-btn" class="btn btn-primary">Enviar</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
