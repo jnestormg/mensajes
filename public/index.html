@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mensajería LAN</title>
+    <meta name="description" content="Sistema de mensajería en tiempo real dentro de la red local.">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mensajería LAN">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -14,13 +23,18 @@
             <input type="text" id="name-input" maxlength="30" placeholder="Ej: PC-02" autocomplete="off">
             <p id="login-error" class="error-message hidden"></p>
             <button id="connect-btn" class="btn btn-primary">Conectar</button>
+            <a id="change-name-link" class="change-name-link hidden" href="#">Cambiar de computadora</a>
         </div>
     </div>
 
     <div id="app-screen" class="app-screen hidden">
         <header class="app-header">
             <h1>Mensajería LAN</h1>
-            <span id="current-user" class="current-user"></span>
+            <div class="header-actions">
+                <span id="current-user" class="current-user"></span>
+                <button id="install-btn" class="btn btn-mute hidden" title="Instalar la aplicación">📥</button>
+                <button id="mute-btn" class="btn btn-mute" title="Silenciar sonido de notificaciones">🔔</button>
+            </div>
         </header>
 
         <div class="app-body">
@@ -44,6 +58,18 @@
                     <button id="send-btn" class="btn btn-primary">Enviar</button>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <div id="alert-overlay" class="alert-overlay hidden">
+        <div class="alert-box">
+            <div class="alert-icon">❗</div>
+            <div id="alert-title" class="alert-title"></div>
+            <div id="alert-sender" class="alert-sender"></div>
+            <div id="alert-body" class="alert-body"></div>
+            <button id="alert-close-btn" class="btn btn-primary">Ver</button>
         </div>
     </div>
 

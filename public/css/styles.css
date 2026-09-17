@@ -109,6 +109,19 @@ body {
     margin-top: 0.5rem;
 }
 
+.change-name-link {
+    display: block;
+    margin-top: 1rem;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.change-name-link:hover {
+    color: var(--color-text);
+}
+
 /* Aplicación */
 .app-screen {
     height: 100vh;
@@ -132,6 +145,25 @@ body {
 .current-user {
     color: var(--color-success);
     font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.btn-mute {
+    background-color: transparent;
+    font-size: 1.1rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.btn-mute:hover {
+    background-color: var(--color-surface);
 }
 
 .app-body {
@@ -194,6 +226,39 @@ body {
     height: 8px;
     border-radius: 50%;
     background-color: var(--color-success);
+    flex-shrink: 0;
+}
+
+.client-item .client-status.offline {
+    background-color: var(--color-text-muted);
+}
+
+.client-item .offline-label {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.client-item.self-item {
+    cursor: default;
+}
+
+.client-item.self-item:hover {
+    background-color: transparent;
+}
+
+.unread-badge {
+    background-color: var(--color-error);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3rem;
     flex-shrink: 0;
 }
 
@@ -265,6 +330,12 @@ body {
     margin-bottom: 0.2rem;
 }
 
+.message .queued-tag {
+    color: var(--color-error);
+    font-weight: 600;
+    margin-left: 0.3rem;
+}
+
 .message.sent .message-meta {
     color: rgba(255, 255, 255, 0.85);
 }
@@ -311,6 +382,124 @@ body {
 @media (max-width: 640px) {
     .sidebar {
         width: 160px;
+    }
+}
+
+/* Notificaciones */
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-width: 320px;
+}
+
+.toast {
+    background-color: var(--color-surface);
+    border-left: 4px solid var(--color-primary);
+    border-radius: 0.5rem;
+    padding: 0.7rem 0.9rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    animation: toast-in 0.25s ease;
+    overflow: hidden;
+}
+
+.toast-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.2rem;
+}
+
+.toast-body {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    word-wrap: break-word;
+}
+
+.alert-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.alert-overlay.active {
+    animation: flash-bg 1s infinite;
+}
+
+.alert-box {
+    background-color: var(--color-error);
+    color: #fff;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    width: 90%;
+    max-width: 420px;
+    text-align: center;
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.6);
+    animation: alert-pulse 0.8s ease-in-out infinite;
+}
+
+.alert-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.alert-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+
+.alert-sender {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+    opacity: 0.95;
+}
+
+.alert-body {
+    font-size: 1rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin-bottom: 1.2rem;
+    max-height: 30vh;
+    overflow-y: auto;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes flash-bg {
+    0%, 100% {
+        background-color: rgba(0, 0, 0, 0.85);
+    }
+    50% {
+        background-color: rgba(120, 0, 0, 0.7);
+    }
+}
+
+@keyframes alert-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
     }
 }
 

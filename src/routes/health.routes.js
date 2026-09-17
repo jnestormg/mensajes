@@ -8,7 +8,7 @@ router.get("/api/health", (req, res) => {
 });
 
 router.get("/api/clients", (req, res) => {
-    res.json(clientManager.getClients());
+    res.json(clientManager.getKnownClients());
 });
 
 module.exports = router;

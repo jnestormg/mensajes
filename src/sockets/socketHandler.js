@@ -29,8 +29,14 @@ function registerSocketHandlers(io) {
             clientManager.addClient(socket.id, name);
 
             socket.emit("registered", { name, id: socket.id });
-            sendEvent(io, "clients-updated", clientManager.getClients());
+            sendEvent(io, "clients-updated", clientManager.getKnownClients());
             socket.broadcast.emit("client-connected", { id: socket.id, name });
+
+            const pending = clientManager.getPendingMessages(name);
+            if (pending.length > 0) {
+                pending.forEach((message) => socket.emit("receive-message", message));
+                clientManager.clearPendingMessages(name);
+            }
         });
 
         socket.on("send-message", (data) => {
@@ -69,31 +75,47 @@ function registerSocketHandlers(io) {
             }
 
             const target = clientManager.getClient(targetId);
+            const targetIsOnline = target && io.sockets.sockets.get(target.id);
 
-            if (!target) {
-                socket.emit("send-error", { error: "El cliente destino ya no está conectado." });
+            if (targetIsOnline) {
+                const individualMessage = {
+                    id: generateId(),
+                    senderId: sender.id,
+                    senderName: sender.name,
+                    targetId: target.id,
+                    targetName: target.name,
+                    message,
+                    timestamp: new Date().toISOString()
+                };
+
+                io.to(target.id).emit("receive-message", individualMessage);
+                socket.emit("message-sent", individualMessage);
                 return;
             }
 
-            const individualMessage = {
+            const targetName = target ? target.name : (typeof data.targetName === "string" ? data.targetName : "");
+            const queuedMessage = {
                 id: generateId(),
                 senderId: sender.id,
                 senderName: sender.name,
-                targetId: target.id,
-                targetName: target.name,
+                targetId: null,
+                targetName,
                 message,
                 timestamp: new Date().toISOString()
             };
 
-            io.to(target.id).emit("receive-message", individualMessage);
-            socket.emit("message-sent", individualMessage);
+            if (clientManager.addPendingMessage(targetName, queuedMessage)) {
+                socket.emit("message-sent", { ...queuedMessage, queued: true });
+            } else {
+                socket.emit("send-error", { error: "El cliente destino ya no está disponible." });
+            }
         });
 
         socket.on("disconnect", () => {
             const removed = clientManager.removeClient(socket.id);
 
             if (removed) {
-                sendEvent(io, "clients-updated", clientManager.getClients());
+                sendEvent(io, "clients-updated", clientManager.getKnownClients());
                 socket.broadcast.emit("client-disconnected", { id: removed.id, name: removed.name });
             }
         });
