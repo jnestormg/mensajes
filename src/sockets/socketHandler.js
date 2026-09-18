@@ -1,4 +1,5 @@
 const clientManager = require("./clientManager");
+const { normalizeUsername, isValidUsername } = require("../config/usernames");
 
 const MESSAGE_MAX_LENGTH = 1000;
 const ALL = "ALL";
@@ -10,9 +11,9 @@ function sendEvent(io, event, payload) {
 function registerSocketHandlers(io) {
     io.on("connection", (socket) => {
         socket.on("register-client", (data) => {
-            const name = (data && typeof data.name === "string" ? data.name : "").trim();
+            const name = normalizeUsername(data && typeof data.name === "string" ? data.name : "");
 
-            if (!clientManager.isValidName(name)) {
+            if (!isValidUsername(name) || !clientManager.isValidName(name)) {
                 socket.emit("register-error", {
                     error: `El nombre debe tener entre 1 y ${clientManager.NAME_MAX_LENGTH} caracteres.`
                 });
@@ -71,6 +72,7 @@ function registerSocketHandlers(io) {
                     timestamp: new Date().toISOString()
                 };
                 sendEvent(io, "broadcast-message", globalMessage);
+                socket.emit("message-sent", globalMessage);
                 return;
             }
 
@@ -109,6 +111,47 @@ function registerSocketHandlers(io) {
             } else {
                 socket.emit("send-error", { error: "El cliente destino ya no está disponible." });
             }
+        });
+
+        socket.on("typing", (data) => {
+            const sender = clientManager.getClient(socket.id);
+            if (!sender) return;
+
+            if (!data || typeof data.isTyping !== "boolean") return;
+
+            if (data.targetId === ALL) {
+                socket.broadcast.emit("typing", {
+                    conversation: ALL,
+                    fromName: sender.name,
+                    isTyping: data.isTyping
+                });
+                return;
+            }
+
+            const targetName = typeof data.targetName === "string" ? data.targetName : "";
+            const target = clientManager.getClientByName(targetName) || clientManager.getClient(data.targetId);
+            if (target && io.sockets.sockets.get(target.id)) {
+                io.to(target.id).emit("typing", {
+                    conversation: target.name,
+                    fromName: sender.name,
+                    isTyping: data.isTyping
+                });
+            }
+        });
+
+        socket.on("message-read", (data) => {
+            const reader = clientManager.getClient(socket.id);
+            if (!reader) return;
+            if (!data || !Array.isArray(data.messageIds) || data.messageIds.length === 0) return;
+
+            const targetName = typeof data.targetName === "string" ? data.targetName : "";
+            const target = clientManager.getClientByName(targetName);
+            if (!target || !io.sockets.sockets.get(target.id)) return;
+
+            io.to(target.id).emit("read-receipt", {
+                fromName: reader.name,
+                messageIds: data.messageIds
+            });
         });
 
         socket.on("disconnect", () => {

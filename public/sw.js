@@ -1,4 +1,4 @@
-const CACHE_NAME = "lan-messenger-v1";
+const CACHE_NAME = "lan-messenger-v6";
 const SHELL = [
     "/",
     "/css/styles.css",
@@ -43,5 +43,22 @@ self.addEventListener("fetch", (event) => {
                 return response;
             });
         }).catch(() => caches.match("/"))
+    );
+});
+
+self.addEventListener("notificationclick", (event) => {
+    const conv = (event.notification.data && event.notification.data.conv) || null;
+    event.notification.close();
+
+    event.waitUntil(
+        self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+            for (const client of windowClients) {
+                if ("focus" in client) {
+                    client.postMessage({ type: "notif-click", conv });
+                    return client.focus();
+                }
+            }
+            return self.clients.openWindow(conv ? "/?open=" + encodeURIComponent(conv) : "/");
+        })
     );
 });

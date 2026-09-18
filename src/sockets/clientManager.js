@@ -25,6 +25,10 @@ function getClient(socketId) {
     return clients.find((client) => client.id === socketId) || null;
 }
 
+function getClientByName(name) {
+    return clients.find((client) => client.name.toLowerCase() === name.toLowerCase()) || null;
+}
+
 function getClients() {
     return clients.map((client) => ({ ...client }));
 }
@@ -81,6 +85,7 @@ module.exports = {
     addClient,
     removeClient,
     getClient,
+    getClientByName,
     getClients,
     getKnownClients,
     isKnownName,

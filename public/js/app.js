@@ -3,6 +3,7 @@ const BASE_TITLE = "Mensajería LAN";
 const STORAGE_KEY = "lan-history-v1";
 const MAX_MESSAGES_PER_CONVERSATION = 300;
 const MAX_STORED_CONVERSATIONS = 30;
+const CLIENT_COLORS = ["#0d9488", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#0891b2", "#4f46e5"];
 
 const loginScreen = document.getElementById("login-screen");
 const appScreen = document.getElementById("app-screen");
@@ -12,6 +13,9 @@ const connectBtn = document.getElementById("connect-btn");
 const currentUserEl = document.getElementById("current-user");
 const clientsList = document.getElementById("clients-list");
 const chatHeader = document.getElementById("chat-header");
+const chatHeaderText = document.getElementById("chat-header-text");
+const typingIndicator = document.getElementById("typing-indicator");
+const changeNameLink = document.getElementById("change-name-link");
 const messagesContainer = document.getElementById("messages-container");
 const messageInput = document.getElementById("message-input");
 const targetInput = document.getElementById("target-input");
@@ -19,13 +23,9 @@ const sendBtn = document.getElementById("send-btn");
 const connectionStatus = document.getElementById("connection-status");
 const statusText = document.getElementById("status-text");
 const muteBtn = document.getElementById("mute-btn");
+const themeBtn = document.getElementById("theme-btn");
 const installBtn = document.getElementById("install-btn");
 const toastContainer = document.getElementById("toast-container");
-const alertOverlay = document.getElementById("alert-overlay");
-const alertTitle = document.getElementById("alert-title");
-const alertSender = document.getElementById("alert-sender");
-const alertBody = document.getElementById("alert-body");
-const alertCloseBtn = document.getElementById("alert-close-btn");
 
 let socket = null;
 let myId = null;
@@ -40,11 +40,20 @@ let saveTimer = null;
 let isMuted = localStorage.getItem("lan-mute") === "1";
 let audioCtx = null;
 let flashInterval = null;
-let overlayTimer = null;
-let pendingOverlayKey = null;
 let deferredPrompt = null;
+let typingSent = false;
+let typingStopTimer = null;
+let typingHideTimer = null;
+let pendingOpenConv = null;
+let notifListenersAdded = false;
 
 function init() {
+    const openParam = new URLSearchParams(window.location.search).get("open");
+    if (openParam) {
+        pendingOpenConv = openParam;
+        history.replaceState(null, "", "/");
+    }
+
     connectBtn.addEventListener("click", connect);
     nameInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") connect();
@@ -54,19 +63,17 @@ function init() {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
+            return;
         }
+        handleTypingActivity();
     });
+    messageInput.addEventListener("blur", stopTyping);
     sendBtn.addEventListener("click", sendMessage);
-    alertCloseBtn.addEventListener("click", () => {
-        if (pendingOverlayKey) selectConversation(pendingOverlayKey);
-        hideOverlay();
-    });
-    alertOverlay.addEventListener("click", () => hideOverlay());
     muteBtn.addEventListener("click", toggleMute);
     installBtn.addEventListener("click", installApp);
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
-            startTitleFlash();
+            if (getUnreadTotal() > 0) startTitleFlash();
         } else {
             stopTitleFlash();
             updateWindowTitle();
@@ -94,18 +101,11 @@ function init() {
 
     loadHistoryFromStorage();
     registerServiceWorker();
+    listenForNotificationClicks();
     updateMuteButton();
-
-    const savedName = localStorage.getItem("lan-name");
-    const changeNameLink = document.getElementById("change-name-link");
-
-    if (savedName) {
-        nameInput.value = savedName;
-        changeNameLink.classList.remove("hidden");
-        setTimeout(() => {
-            if (!myId && nameInput.value.trim()) connect();
-        }, 50);
-    }
+    initTheme();
+    themeBtn.addEventListener("click", toggleTheme);
+    restoreSavedName();
 
     changeNameLink.addEventListener("click", (e) => {
         e.preventDefault();
@@ -114,9 +114,120 @@ function init() {
     });
 }
 
+function restoreSavedName() {
+    const savedName = localStorage.getItem("lan-name");
+    if (!savedName) return;
+
+    const cleaned = String(savedName).trim();
+    if (!cleaned) {
+        localStorage.removeItem("lan-name");
+        return;
+    }
+
+    nameInput.value = cleaned;
+    changeNameLink.classList.remove("hidden");
+    setTimeout(() => {
+        if (!myId && nameInput.value) connect();
+    }, 50);
+}
+
+function getCookie(name) {
+    const match = document.cookie.match(new RegExp("(?:^|;\\s*)" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=([^;]*)"));
+    return match ? decodeURIComponent(match[1]) : "";
+}
+
+function setCookie(name, value, days) {
+    const d = new Date();
+    d.setTime(d.getTime() + (days || 365) * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/`;
+}
+
+/* ------------------- Tema claro / oscuro ------------------- */
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
+    if (themeBtn) themeBtn.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function initTheme() {
+    const saved = getCookie("theme");
+    const theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    applyTheme(theme);
+
+    if (!saved && window.matchMedia) {
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+            if (!getCookie("theme")) initTheme();
+        });
+    }
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute("data-theme") || "light";
+    const next = current === "dark" ? "light" : "dark";
+    applyTheme(next);
+    setCookie("theme", next, 365);
+}
+
+/* ------------------- Notificaciones nativas (service worker) ------------------- */
+
 function registerServiceWorker() {
     if (!window.isSecureContext || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
+function listenForNotificationClicks() {
+    if (notifListenersAdded || !window.isSecureContext || !("serviceWorker" in navigator)) return;
+    notifListenersAdded = true;
+    navigator.serviceWorker.addEventListener("message", (e) => {
+        if (!e.data || e.data.type !== "notif-click") return;
+        pendingOpenConv = e.data.conv || ALL;
+        if (myId) {
+            selectConversation(pendingOpenConv);
+            pendingOpenConv = null;
+        }
+        stopTitleFlash();
+        try { window.focus(); } catch (err) {}
+    });
+}
+
+function canUseNativeNotifications() {
+    return Boolean(window.isSecureContext && "Notification" in window && "serviceWorker" in navigator);
+}
+
+async function showNativeNotification(title, body, conv, tag) {
+    if (!canUseNativeNotifications()) return false;
+    if (Notification.permission !== "granted") return false;
+
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        reg.showNotification(title, {
+            body,
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            tag,
+            renotify: true,
+            requireInteraction: true,
+            data: { conv }
+        });
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function requestNotificationPermission() {
+    if (!canUseNativeNotifications() || !("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+
+    const ask = () => {
+        Notification.requestPermission().catch(() => {});
+        window.removeEventListener("pointerdown", ask);
+        window.removeEventListener("keydown", ask);
+    };
+
+    ask();
+    window.addEventListener("pointerdown", ask, { once: true });
+    window.addEventListener("keydown", ask, { once: true });
 }
 
 async function installApp() {
@@ -130,22 +241,25 @@ async function installApp() {
 }
 
 function connect() {
-    const name = nameInput.value.trim();
+    const name = String(nameInput.value || "").trim().replace(/\s+/g, " ");
 
     if (!name) {
-        showLoginError("El nombre no puede estar vacío.");
+        showLoginError("Escribe tu nombre para conectarte.");
         return;
     }
 
+    if (name.length > 30) {
+        showLoginError("El nombre no puede superar 30 caracteres.");
+        return;
+    }
+
+    nameInput.value = name;
     connectBtn.disabled = true;
     loginError.classList.add("hidden");
     unlockAudio();
+    requestNotificationPermission();
 
-    if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission().catch(() => {});
-    }
-
-    socket = io();
+    socket = io({ transports: ["websocket"] });
 
     socket.on("connect", () => {
         socket.emit("register-client", { name });
@@ -156,6 +270,10 @@ function connect() {
         myName = data.name;
         localStorage.setItem("lan-name", myName);
         enterApp();
+        if (pendingOpenConv) {
+            selectConversation(pendingOpenConv);
+            pendingOpenConv = null;
+        }
     });
 
     socket.on("register-error", (data) => {
@@ -208,6 +326,36 @@ function connect() {
         addSystemMessage(`Error: ${data.error}`);
     });
 
+    socket.on("typing", (data) => {
+        if (!data || data.fromName === myName) return;
+        if (data.conversation !== selectedTargetKey) return;
+        if (data.isTyping) {
+            showTypingIndicator(data.fromName);
+        } else {
+            hideTypingIndicator();
+        }
+    });
+
+    socket.on("read-receipt", (data) => {
+        if (!data || !Array.isArray(data.messageIds)) return;
+        const conv = conversationHistory.get(data.fromName);
+        if (!conv) return;
+
+        const idSet = new Set(data.messageIds);
+        let changed = false;
+        conv.forEach((m) => {
+            if (m.type !== "system" && m.senderName === myName && idSet.has(m.id) && !m.read) {
+                m.read = true;
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            scheduleHistorySave();
+            if (selectedTargetKey === data.fromName) renderConversation();
+        }
+    });
+
     socket.on("connect_error", () => {
         if (!myId) connectBtn.disabled = false;
         showConnectionLost();
@@ -220,16 +368,96 @@ function connect() {
 
 function handleIncomingMessage(message) {
     const key = message.isBroadcast ? ALL : message.senderName;
-    const isOpen = selectedTargetKey === key;
+    const wasOpen = selectedTargetKey === key;
 
     addMessageToHistory(key, message);
-    if (!isOpen) {
-        incrementUnread(key);
-    }
-    renderClients();
 
-    if (isOpen) renderConversation();
+    if (message.isBroadcast) {
+        if (!wasOpen) incrementUnread(key);
+        renderClients();
+        if (wasOpen) renderConversation();
+        notifyMessage(key, message);
+        return;
+    }
+
+    if (!wasOpen) {
+        selectConversation(key);
+    } else {
+        renderClients();
+        renderConversation();
+        sendReadReceipts(key);
+    }
     notifyMessage(key, message);
+}
+
+function sendReadReceipts(conversationKey) {
+    if (!socket || !socket.connected) return;
+    if (!conversationKey || conversationKey === ALL) return;
+
+    const history = conversationHistory.get(conversationKey) || [];
+    const ids = history
+        .filter((m) => m.type !== "system" && m.senderName && m.senderName !== myName && !m.read && m.id)
+        .map((m) => m.id);
+
+    if (ids.length === 0) return;
+    socket.emit("message-read", { targetName: conversationKey, messageIds: ids });
+}
+
+/* ------------------- Color por cliente ------------------- */
+
+function colorFor(name) {
+    const s = String(name || "").toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) {
+        hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+    }
+    return CLIENT_COLORS[hash % CLIENT_COLORS.length];
+}
+
+/* ------------------- Indicador escribiendo… ------------------- */
+
+function sendTyping(isTyping) {
+    if (!socket || !socket.connected) return;
+    if (selectedTargetKey === ALL) {
+        socket.emit("typing", { targetId: ALL, isTyping });
+        return;
+    }
+    const client = clients.find((c) => c.name === selectedTargetKey);
+    if (client) {
+        socket.emit("typing", { targetId: client.id, targetName: client.name, isTyping });
+    }
+}
+
+function handleTypingActivity() {
+    if (!typingSent) {
+        typingSent = true;
+        sendTyping(true);
+    }
+    clearTimeout(typingStopTimer);
+    typingStopTimer = setTimeout(() => {
+        typingSent = false;
+        sendTyping(false);
+    }, 2500);
+}
+
+function stopTyping() {
+    if (typingSent) {
+        typingSent = false;
+        clearTimeout(typingStopTimer);
+        sendTyping(false);
+    }
+}
+
+function showTypingIndicator(name) {
+    typingIndicator.textContent = `${name} está escribiendo…`;
+    typingIndicator.classList.remove("hidden");
+    clearTimeout(typingHideTimer);
+    typingHideTimer = setTimeout(hideTypingIndicator, 2500);
+}
+
+function hideTypingIndicator() {
+    clearTimeout(typingHideTimer);
+    typingIndicator.classList.add("hidden");
 }
 
 function enterApp() {
@@ -318,6 +546,9 @@ function createUnreadBadge(count) {
 }
 
 function selectConversation(key) {
+    stopTyping();
+    hideTypingIndicator();
+
     selectedTargetKey = key;
     selectedTargetId = key === ALL ? ALL : null;
 
@@ -333,20 +564,21 @@ function selectConversation(key) {
     renderConversation();
     stopTitleFlash();
     updateWindowTitle();
+    sendReadReceipts(key);
 }
 
 function updateChatHeader() {
     if (selectedTargetKey === ALL) {
-        chatHeader.textContent = "Mensaje para todos";
+        chatHeaderText.textContent = "Mensaje para todos";
         return;
     }
 
     const client = clients.find((c) => c.name === selectedTargetKey);
     if (!client) {
-        chatHeader.textContent = "Selecciona un destino";
+        chatHeaderText.textContent = "Selecciona un destino";
         return;
     }
-    chatHeader.textContent = `${selectedTargetKey}${client.online ? "" : " (desconectado)"}`;
+    chatHeaderText.textContent = `${selectedTargetKey}${client.online ? "" : " (desconectado)"}`;
 }
 
 function sendMessage() {
@@ -362,6 +594,7 @@ function sendMessage() {
         message: text
     });
 
+    stopTyping();
     messageInput.value = "";
 }
 
@@ -424,12 +657,17 @@ function appendMessage(message) {
     const meta = document.createElement("div");
     meta.className = "message-meta";
 
+    const displayName = isMyMessage ? "Yo" : (message.senderName || "Desconocido");
+    const displayColor = isMyMessage ? colorFor(myName) : colorFor(message.senderName);
+
+    const avatar = document.createElement("span");
+    avatar.className = "avatar";
+    avatar.style.backgroundColor = displayColor;
+    avatar.textContent = (isMyMessage ? (myName || "Yo") : (message.senderName || "?")).charAt(0).toUpperCase();
+
     const senderLabel = document.createElement("span");
-    if (isMyMessage) {
-        senderLabel.textContent = "Yo";
-    } else {
-        senderLabel.textContent = message.senderName || "Desconocido";
-    }
+    senderLabel.textContent = displayName;
+    if (!isMyMessage) senderLabel.style.color = displayColor;
 
     const targetLabel = document.createElement("span");
     if (isGlobal) {
@@ -441,15 +679,28 @@ function appendMessage(message) {
     const time = document.createElement("span");
     time.textContent = ` ${formatTime(message.timestamp)}`;
 
+    meta.appendChild(avatar);
     meta.appendChild(senderLabel);
     meta.appendChild(targetLabel);
     meta.appendChild(time);
 
-    if (message.queued) {
-        const queuedTag = document.createElement("span");
-        queuedTag.className = "queued-tag";
-        queuedTag.textContent = " pendiente";
-        meta.appendChild(queuedTag);
+    if (isMyMessage && !isGlobal) {
+        if (message.queued) {
+            const queuedTag = document.createElement("span");
+            queuedTag.className = "queued-tag";
+            queuedTag.textContent = " pendiente";
+            meta.appendChild(queuedTag);
+        } else if (message.read) {
+            const readTag = document.createElement("span");
+            readTag.className = "read-tag";
+            readTag.textContent = " ✓✓ Visto";
+            meta.appendChild(readTag);
+        } else {
+            const sentTag = document.createElement("span");
+            sentTag.className = "sent-tag";
+            sentTag.textContent = " ✓ Enviado";
+            meta.appendChild(sentTag);
+        }
     }
 
     const text = document.createElement("div");
@@ -509,7 +760,8 @@ function stripInternalFields(message) {
         targetName: message.targetName,
         message: message.message,
         timestamp: message.timestamp,
-        queued: message.queued || false
+        queued: message.queued || false,
+        read: message.read || false
     };
 }
 
@@ -597,24 +849,14 @@ function notifyMessage(key, message) {
     const title = key === ALL ? "Mensaje para todos" : message.senderName || key;
     const body = message.message;
 
-    showToast(title, body);
+    showToast(title, body, key);
     playAlertSound();
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
 
-    if ("Notification" in window && Notification.permission === "granted") {
-        try {
-            new Notification(title, {
-                body,
-                tag: message.id || key,
-                requireInteraction: true
-            });
-        } catch (e) {}
-    }
-
-    const needsOverlay = document.hidden || (key !== null && key !== selectedTargetKey);
-    if (needsOverlay) showOverlay(title, body, key);
+    showNativeNotification(title, body, key, String(message.id || key)).catch(() => {});
 }
 
-function showToast(title, body) {
+function showToast(title, body, key) {
     const toast = document.createElement("div");
     toast.className = "toast";
 
@@ -630,31 +872,14 @@ function showToast(title, body) {
     toast.appendChild(b);
     toast.addEventListener("click", () => {
         toast.remove();
-        if (pendingOverlayKey) selectConversation(pendingOverlayKey);
-        window.focus();
+        if (key) {
+            selectConversation(key);
+            try { window.focus(); } catch (e) {}
+        }
     });
 
     toastContainer.appendChild(toast);
     setTimeout(() => toast.remove(), 6500);
-}
-
-function showOverlay(title, body, key) {
-    pendingOverlayKey = key;
-    alertTitle.textContent = "Nuevo mensaje";
-    alertSender.textContent = title;
-    alertBody.textContent = body;
-    alertOverlay.classList.remove("hidden");
-    alertOverlay.classList.add("active");
-
-    clearTimeout(overlayTimer);
-    overlayTimer = setTimeout(hideOverlay, 8000);
-}
-
-function hideOverlay() {
-    clearTimeout(overlayTimer);
-    alertOverlay.classList.add("hidden");
-    alertOverlay.classList.remove("active");
-    pendingOverlayKey = null;
 }
 
 function toggleMute() {
@@ -712,7 +937,13 @@ function getUnreadTotal() {
 
 function startTitleFlash() {
     if (flashInterval) return;
+    if (getUnreadTotal() === 0) return;
     flashInterval = setInterval(() => {
+        if (getUnreadTotal() === 0) {
+            stopTitleFlash();
+            updateWindowTitle();
+            return;
+        }
         document.title = document.title === BASE_TITLE
             ? `🔴 NUEVO MENSAJE (${getUnreadTotal()})`
             : BASE_TITLE;

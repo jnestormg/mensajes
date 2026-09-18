@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "icons": "node scripts/generate-icons.js"
+    "icons": "node scripts/generate-icons.js",
+    "cert": "node scripts/generate-cert.js",
+    "trust": "node scripts/trust-cert.js"
   },
   "keywords": [
     "lan",
@@ -19,6 +21,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "selfsigned": "^2.4.1"
   }
 }

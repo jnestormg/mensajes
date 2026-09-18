@@ -10,6 +10,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mensajería LAN">
+    <script>
+        (function () {
+            try {
+                var match = document.cookie.match(/(?:^|;\s*)theme=([^;]*)/);
+                var theme = match ? match[1] : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+                if (theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
+            } catch (e) {}
+        })();
+    </script>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -19,11 +28,11 @@
     <div id="login-screen" class="login-screen">
         <div class="login-box">
             <h1>Mensajería LAN</h1>
-            <p>Nombre de esta computadora:</p>
-            <input type="text" id="name-input" maxlength="30" placeholder="Ej: PC-02" autocomplete="off">
+            <p>Escribe tu nombre:</p>
+            <input id="name-input" class="login-select" type="text" maxlength="30" placeholder="Tu nombre aquí" autocomplete="nickname">
             <p id="login-error" class="error-message hidden"></p>
             <button id="connect-btn" class="btn btn-primary">Conectar</button>
-            <a id="change-name-link" class="change-name-link hidden" href="#">Cambiar de computadora</a>
+            <a id="change-name-link" class="change-name-link hidden" href="#">Cambiar de nombre</a>
         </div>
     </div>
 
@@ -32,6 +41,7 @@
             <h1>Mensajería LAN</h1>
             <div class="header-actions">
                 <span id="current-user" class="current-user"></span>
+                <button id="theme-btn" class="btn btn-mute" title="Cambiar tema de color">🌙</button>
                 <button id="install-btn" class="btn btn-mute hidden" title="Instalar la aplicación">📥</button>
                 <button id="mute-btn" class="btn btn-mute" title="Silenciar sonido de notificaciones">🔔</button>
             </div>
@@ -48,7 +58,10 @@
             </aside>
 
             <main class="chat-area">
-                <div id="chat-header" class="chat-header">Selecciona un destino</div>
+                <div id="chat-header" class="chat-header">
+                    <span id="chat-header-text">Selecciona un destino</span>
+                    <span id="typing-indicator" class="typing-indicator hidden"></span>
+                </div>
 
                 <div id="messages-container" class="messages-container"></div>
 
@@ -62,16 +75,6 @@
     </div>
 
     <div id="toast-container" class="toast-container"></div>
-
-    <div id="alert-overlay" class="alert-overlay hidden">
-        <div class="alert-box">
-            <div class="alert-icon">❗</div>
-            <div id="alert-title" class="alert-title"></div>
-            <div id="alert-sender" class="alert-sender"></div>
-            <div id="alert-body" class="alert-body"></div>
-            <button id="alert-close-btn" class="btn btn-primary">Ver</button>
-        </div>
-    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
