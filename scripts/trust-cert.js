@@ -16,7 +16,7 @@ try {
     if (platform === "win32") {
         execFileSync("certutil", ["-user", "-addstore", "Root", CERT_PATH], { stdio: "inherit" });
         console.log("Certificado instalado como raíz de confianza (usuario).");
-        console.log("Reinicia el navegador y entra a https://localhost:3000 sin avisos.");
+        console.log("Reinicia el navegador y entra a la app para recibir notificaciones nativas.");
     } else if (platform === "darwin") {
         const keychain = path.join(os.homedir(), "Library", "Keychains", "login.keychain-db");
         execFileSync("security", ["add-trusted-cert", "-d", "-r", "trustRoot", "-k", keychain, CERT_PATH], { stdio: "inherit" });
@@ -28,7 +28,7 @@ try {
     }
 } catch (err) {
     console.error("No se pudo instalar el certificado automáticamente.");
-    console.error("Entra a https://localhost:3000 y acepta el aviso una vez por máquina.");
+    console.error("Ejecuta 'npm run trust' en la máquina con permisos de administrador.");
     console.error(err.stderr ? err.stderr.toString() : err.message);
     process.exit(1);
 }

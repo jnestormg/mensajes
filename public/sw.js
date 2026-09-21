@@ -1,4 +1,4 @@
-const CACHE_NAME = "lan-messenger-v6";
+const CACHE_NAME = "lan-messenger-v7";
 const SHELL = [
     "/",
     "/css/styles.css",

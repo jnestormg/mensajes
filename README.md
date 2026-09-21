@@ -71,28 +71,49 @@ Ejemplo:
 http://192.168.1.10:3000
 ```
 
+Nota: basta con escribir `192.168.1.10:3000`; la app redirige sola a HTTPS sin pedir `https://`.
+
+## Confiar el certificado (una vez por equipo)
+
+Para que en cada computadora se carguen las notificaciones nativas sin avisos, confiar el certificado una sola vez por equipo (Windows y macOS lo hacen automáticamente; Linux sigue las instrucciones):
+
+```bash
+npm run trust
+```
+
+Es un paso único. Sin él la app igual funciona, pero el navegador pide aceptar el certificado cada vez y **no muestra notificaciones nativas** (sí las alertas internas).
+
+Si cambia la IP del servidor, se regenera el certificado solo al arrancar; entonces repetir `npm run trust` en los equipos.
+
 ## Uso
 
 1. Abrir la aplicación en el navegador.
-2. La primera vez pide el nombre de esta computadora y pulsar **Conectar**.
-3. El nombre se **recuerda** (localStorage): al recargar la página se conecta automáticamente. Para usar otro nombre, pulsar **Cambiar de computadora** en la pantalla de inicio.
+2. Escribir el propio nombre y pulsar **Conectar** (cada usuario elige el suyo, no hay lista fija).
+3. El nombre se **recuerda** (localStorage): al recargar la página se conecta automáticamente con ese nombre. Para usar otro, pulsar **Cambiar de nombre** en la pantalla de inicio.
 4. En el panel izquierdo se muestran los clientes (conectados y desconectados).
 5. Seleccionar **Todos** para enviar un mensaje global, o un cliente específico para un mensaje individual.
 6. Escribir el mensaje y pulsar **Enviar** (o la tecla Enter).
 
 ## Funcionalidades
 
-### Notificaciones muy notorias (en el navegador)
+### Notificaciones
 
-Al recibir un mensaje se activan varias alertas (el botón 🔔/🔇 del encabezado silencia el sonido):
+Al recibir un mensaje se activan varías alertas dentro del navegador (el botón 🔔/🔇 del encabezado silencia el sonido):
 
 - **Sonido de alarma**: beep repetido generado con Web Audio (no requiere archivos ni Internet).
 - **Aviso flotante** (toast) en la esquina superior derecha con remitente y texto.
 - **Título con contador**: la pestaña muestra `(N) Mensajería LAN` y parpadea "🔴 NUEVO MENSAJE" si no está en primer plano.
-- **Pantalla de alerta a pantalla completa** con fondo rojo parpadeante cuando el mensaje llega a una conversación que no está abierta.
-- Si el navegador lo permite (HTTPS o `localhost`), también se muestra una notificación nativa del sistema operativo.
+- **Vibración** en navegadores móviles que lo soporten.
 
-Nota: por `http://` más IP de LAN, los navegadores bloquean las notificaciones nativas del sistema operativo; por eso las alertas se muestran dentro del navegador.
+Estas alertas funcionan en **todas** las computadoras sin importar el certificado.
+
+**Notificaciones nativas del sistema operativo** (popups de Windows/Linux): aparecen en **todas** las PCs cuando el certificado está confiado (`npm run trust`, una vez por equipo). En equipos donde no se confió, solo se ven las alertas internas. Al recibir el primer mensaje, la app avisa cómo activarlas.
+
+Notas sobre el popup de Chrome:
+
+- El popup nativo aparece en la computadora que **recibe** el mensaje, no en la que lo envía.
+- Al conectar, la app pide permiso automáticamente; si está denegado, avisa cómo activarlo.
+- Chrome también necesita que Windows permita las notificaciones: **Configuración de Windows > Sistema > Notificaciones > activar Chrome** (y desactivar "Asistente de enfoque"/"No molestar").
 
 ### Conversaciones separadas
 

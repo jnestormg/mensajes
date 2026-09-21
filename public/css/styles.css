@@ -40,12 +40,19 @@
     --gradient-primary: linear-gradient(135deg, #159a8c 0%, #0e6f63 100%);
 }
 
+html {
+    height: 100%;
+    height: -webkit-fill-available;
+}
+
 body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background-color: var(--color-bg);
     color: var(--color-text);
     height: 100vh;
-    overflow: hidden;
+    height: 100dvh;
+    height: -webkit-fill-available;
+    overflow-y: auto;
 }
 
 .hidden {
@@ -82,6 +89,8 @@ body {
 /* Pantalla de inicio de sesión */
 .login-screen {
     height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -155,6 +164,8 @@ body {
 /* Aplicación */
 .app-screen {
     height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
 }

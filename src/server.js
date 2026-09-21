@@ -6,46 +6,36 @@ const { spawn } = require("child_process");
 const express = require("express");
 const { Server } = require("socket.io");
 const config = require("./config/config")();
+const { ensureCert, getLanIps } = require("../scripts/generate-cert");
 const routes = require("./routes/health.routes");
 const socketHandler = require("./sockets/socketHandler");
 
 const INTERNAL_HTTPS_PORT = 3443;
 const TLS_HANDSHAKE_BYTE = 0x16;
 
-function getLanIps() {
-    const ips = new Set();
-    const nets = os.networkInterfaces();
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name] || []) {
-            if (net.family === "IPv4" && !net.internal) ips.add(net.address);
-        }
-    }
-    return [...ips];
-}
-
-function openBrowser(url) {
-    const platform = os.platform();
-    const args = platform === "win32" ? ["/c", "start", "", url] : [url];
-    const cmd = platform === "win32" ? "cmd" : platform === "darwin" ? "open" : "xdg-open";
-    try {
-        const child = spawn(cmd, args, { detached: true, stdio: "ignore", shell: platform === "win32" });
-        child.unref();
-    } catch (e) {}
-}
-
 function printBanner(port) {
     const ips = getLanIps();
     console.log("");
     console.log("==============================================");
     console.log("  MENSAJERÍA LAN ESTÁ EN LÍNEA");
-    console.log(`  Local:    https://localhost:${port}`);
-    ips.forEach((ip) => console.log(`  LAN:      https://${ip}:${port}`));
+    console.log(`  Local:    http://localhost:${port}  (redirige a https)`);
+    ips.forEach((ip) => console.log(`  LAN:      http://${ip}:${port}  (redirige a https)`));
     console.log("");
-    console.log("  Pudes escribir IP:PUERTO sin https:// (redirige solo).");
-    console.log("  La primera vez acepta el aviso del certificado");
-    console.log("  o ejecuta 'npm run trust' para quitarlo.");
+    console.log("  Otros equipos escriben IP:PUERTO y entran solos.");
+    console.log("  Para recibir notificaciones nativas, ejecuta");
+    console.log("  una vez 'npm run trust' en cada equipo.");
     console.log("==============================================");
     console.log("");
+}
+
+function openBrowser(url) {
+    const platform = os.platform();
+    try {
+        const child = platform === "win32"
+            ? spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" })
+            : spawn(platform === "darwin" ? "open" : "xdg-open", [url], { detached: true, stdio: "ignore" });
+        child.unref();
+    } catch (e) {}
 }
 
 function writeRedirect(socket, chunk) {
@@ -104,6 +94,12 @@ function createTlsSniffer(port) {
 }
 
 try {
+    const { generated } = ensureCert();
+    if (generated) {
+        console.warn("Se generó un certificado nuevo (no existía o cambiaron tus IPs).");
+        console.warn("Ejecuta 'npm run trust' en cada equipo de la red una vez.");
+    }
+
     const key = fs.readFileSync(config.sslKey);
     const cert = fs.readFileSync(config.sslCert);
 
@@ -111,7 +107,13 @@ try {
     const inner = https.createServer({ key, cert }, app);
     const io = new Server(inner);
 
-    app.use(express.static(config.publicDir));
+    app.use(express.static(config.publicDir, {
+        etag: true,
+        maxAge: 0,
+        setHeaders(res) {
+            res.setHeader("Cache-Control", "no-cache, must-revalidate");
+        }
+    }));
     app.use(routes);
 
     socketHandler.registerSocketHandlers(io);
@@ -120,8 +122,7 @@ try {
         createTlsSniffer(config.port);
     });
 } catch (err) {
-    console.error("No se pudo cargar el certificado SSL.");
-    console.error("Ejecuta 'npm run cert' para generar un certificado autofirmado.");
+    console.error("No se pudo iniciar el servidor HTTPS.");
     console.error(err.message);
     process.exit(1);
 }

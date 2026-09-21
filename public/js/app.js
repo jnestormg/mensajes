@@ -45,7 +45,7 @@ let typingSent = false;
 let typingStopTimer = null;
 let typingHideTimer = null;
 let pendingOpenConv = null;
-let notifListenersAdded = false;
+let notifHintShown = false;
 
 function init() {
     const openParam = new URLSearchParams(window.location.search).get("open");
@@ -101,10 +101,12 @@ function init() {
 
     loadHistoryFromStorage();
     registerServiceWorker();
-    listenForNotificationClicks();
     updateMuteButton();
     initTheme();
     themeBtn.addEventListener("click", toggleTheme);
+    window.visualViewport
+        ? window.visualViewport.addEventListener("resize", keepInputVisible)
+        : window.addEventListener("resize", keepInputVisible);
     restoreSavedName();
 
     changeNameLink.addEventListener("click", (e) => {
@@ -112,6 +114,12 @@ function init() {
         localStorage.removeItem("lan-name");
         location.reload();
     });
+}
+
+function keepInputVisible() {
+    const el = document.activeElement;
+    if (!el || !el.matches("input")) return;
+    el.scrollIntoView({ block: "nearest" });
 }
 
 function restoreSavedName() {
@@ -168,39 +176,23 @@ function toggleTheme() {
     setCookie("theme", next, 365);
 }
 
-/* ------------------- Notificaciones nativas (service worker) ------------------- */
+/* ------------------- Notificaciones nativas ------------------- */
 
 function registerServiceWorker() {
     if (!window.isSecureContext || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
-function listenForNotificationClicks() {
-    if (notifListenersAdded || !window.isSecureContext || !("serviceWorker" in navigator)) return;
-    notifListenersAdded = true;
-    navigator.serviceWorker.addEventListener("message", (e) => {
-        if (!e.data || e.data.type !== "notif-click") return;
-        pendingOpenConv = e.data.conv || ALL;
-        if (myId) {
-            selectConversation(pendingOpenConv);
-            pendingOpenConv = null;
-        }
-        stopTitleFlash();
-        try { window.focus(); } catch (err) {}
-    });
-}
-
 function canUseNativeNotifications() {
-    return Boolean(window.isSecureContext && "Notification" in window && "serviceWorker" in navigator);
+    return Boolean(window.isSecureContext && "Notification" in window);
 }
 
-async function showNativeNotification(title, body, conv, tag) {
+function showNativeNotification(title, body, conv, tag) {
     if (!canUseNativeNotifications()) return false;
     if (Notification.permission !== "granted") return false;
 
     try {
-        const reg = await navigator.serviceWorker.ready;
-        reg.showNotification(title, {
+        const notification = new Notification(title, {
             body,
             icon: "/icons/icon-192.png",
             badge: "/icons/icon-192.png",
@@ -209,6 +201,11 @@ async function showNativeNotification(title, body, conv, tag) {
             requireInteraction: true,
             data: { conv }
         });
+        notification.onclick = () => {
+            if (conv) selectConversation(conv);
+            stopTitleFlash();
+            try { window.focus(); } catch (e) {}
+        };
         return true;
     } catch (e) {
         return false;
@@ -216,18 +213,9 @@ async function showNativeNotification(title, body, conv, tag) {
 }
 
 function requestNotificationPermission() {
-    if (!canUseNativeNotifications() || !("Notification" in window)) return;
+    if (!canUseNativeNotifications()) return;
     if (Notification.permission !== "default") return;
-
-    const ask = () => {
-        Notification.requestPermission().catch(() => {});
-        window.removeEventListener("pointerdown", ask);
-        window.removeEventListener("keydown", ask);
-    };
-
-    ask();
-    window.addEventListener("pointerdown", ask, { once: true });
-    window.addEventListener("keydown", ask, { once: true });
+    Notification.requestPermission().catch(() => {});
 }
 
 async function installApp() {
@@ -853,7 +841,22 @@ function notifyMessage(key, message) {
     playAlertSound();
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
 
-    showNativeNotification(title, body, key, String(message.id || key)).catch(() => {});
+    if (!notifHintShown && !(canUseNativeNotifications() && Notification.permission === "granted")) {
+        notifHintShown = true;
+        nativeNotificationHint();
+    }
+
+    showNativeNotification(title, body, key, String(message.id || key));
+}
+
+function nativeNotificationHint() {
+    if (!canUseNativeNotifications()) {
+        showToast("Notificaciones nativas desactivadas", "Corre 'npm run trust' en este equipo (una vez) para ver popups nativos.");
+        return;
+    }
+    if (Notification.permission === "denied") {
+        showToast("Permiso denegado", "Actívalo en Chrome (Configuración del sitio > Notificaciones) y en Configuración de Windows.");
+    }
 }
 
 function showToast(title, body, key) {
