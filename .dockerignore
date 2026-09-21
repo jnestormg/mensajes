@@ -1,0 +1,14 @@
+node_modules/
+certs/
+.env
+.git/
+.gitignore
+.agents/
+.claude/
+agent/
+tests/
+scripts/skills-lock.json
+Dockerfile
+docker-compose.yml
+.dockerignore
+*.md
