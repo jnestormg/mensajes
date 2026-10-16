@@ -274,8 +274,15 @@ function connect() {
     socket.on("clients-updated", (list) => {
         clients = list;
 
-        if (selectedTargetKey !== ALL && !clients.some((c) => c.name === selectedTargetKey)) {
-            selectConversation(ALL);
+        if (selectedTargetKey !== ALL) {
+            const client = clients.find((c) => c.name === selectedTargetKey);
+            if (client) {
+                selectedTargetId = client.id || null;
+                if (targetInput) targetInput.value = selectedTargetId || "";
+            } else {
+                selectConversation(ALL);
+                return;
+            }
         }
         renderClients();
     });
@@ -293,6 +300,39 @@ function connect() {
 
     socket.on("receive-message", (message) => {
         handleIncomingMessage(message);
+        if (message && message.id && message.senderName && message.senderName !== myName) {
+            socket.emit("message-delivered", {
+                senderName: message.senderName,
+                messageIds: [message.id]
+            });
+        }
+    });
+
+    socket.on("pending-messages", (data) => {
+        if (!data || !Array.isArray(data.messages)) return;
+        const ackIds = [];
+        const deliveredBySender = new Map();
+
+        data.messages.forEach((message) => {
+            if (message && message.id) {
+                handleIncomingMessage(message);
+                ackIds.push(message.id);
+                if (message.senderName && message.senderName !== myName) {
+                    if (!deliveredBySender.has(message.senderName)) {
+                        deliveredBySender.set(message.senderName, []);
+                    }
+                    deliveredBySender.get(message.senderName).push(message.id);
+                }
+            }
+        });
+
+        if (ackIds.length > 0) {
+            socket.emit("pending-messages-acked", { messageIds: ackIds });
+        }
+
+        deliveredBySender.forEach((ids, senderName) => {
+            socket.emit("message-delivered", { senderName, messageIds: ids });
+        });
     });
 
     socket.on("broadcast-message", (message) => {
@@ -303,10 +343,14 @@ function connect() {
     socket.on("message-sent", (message) => {
         const key = message.targetId === ALL ? ALL : message.targetName;
 
-        addMessageToHistory(key, message);
-        if (message.queued) {
-            addSystemMessage(`El mensaje se entregará cuando ${message.targetName} se conecte.`);
-        }
+        const storedMessage = {
+            ...message,
+            delivered: message.delivered || false,
+            read: message.read || false
+        };
+        delete storedMessage.queued;
+
+        addMessageToHistory(key, storedMessage);
         if (selectedTargetKey === key) renderConversation();
     });
 
@@ -324,6 +368,35 @@ function connect() {
         }
     });
 
+    socket.on("delivery-receipt", (data) => {
+        if (!data || !Array.isArray(data.messageIds) || data.messageIds.length === 0) return;
+
+        const idSet = new Set(data.messageIds);
+        const targetName = typeof data.fromName === "string" ? data.fromName : null;
+        let changed = false;
+
+        function markDelivered(conv) {
+            conv.forEach((m) => {
+                if (m.type !== "system" && m.senderName === myName && idSet.has(m.id) && !m.delivered) {
+                    m.delivered = true;
+                    changed = true;
+                }
+            });
+        }
+
+        if (targetName) {
+            const conv = conversationHistory.get(targetName);
+            if (conv) markDelivered(conv);
+        } else {
+            conversationHistory.forEach((conv) => markDelivered(conv));
+        }
+
+        if (changed) {
+            scheduleHistorySave();
+            if (!targetName || selectedTargetKey === targetName) renderConversation();
+        }
+    });
+
     socket.on("read-receipt", (data) => {
         if (!data || !Array.isArray(data.messageIds)) return;
         const conv = conversationHistory.get(data.fromName);
@@ -334,6 +407,7 @@ function connect() {
         conv.forEach((m) => {
             if (m.type !== "system" && m.senderName === myName && idSet.has(m.id) && !m.read) {
                 m.read = true;
+                m.delivered = true;
                 changed = true;
             }
         });
@@ -673,16 +747,16 @@ function appendMessage(message) {
     meta.appendChild(time);
 
     if (isMyMessage && !isGlobal) {
-        if (message.queued) {
-            const queuedTag = document.createElement("span");
-            queuedTag.className = "queued-tag";
-            queuedTag.textContent = " pendiente";
-            meta.appendChild(queuedTag);
-        } else if (message.read) {
+        if (message.read) {
             const readTag = document.createElement("span");
             readTag.className = "read-tag";
             readTag.textContent = " ✓✓ Visto";
             meta.appendChild(readTag);
+        } else if (message.delivered) {
+            const deliveredTag = document.createElement("span");
+            deliveredTag.className = "delivered-tag";
+            deliveredTag.textContent = " ✓✓ Entregado";
+            meta.appendChild(deliveredTag);
         } else {
             const sentTag = document.createElement("span");
             sentTag.className = "sent-tag";
@@ -748,7 +822,7 @@ function stripInternalFields(message) {
         targetName: message.targetName,
         message: message.message,
         timestamp: message.timestamp,
-        queued: message.queued || false,
+        delivered: message.delivered || false,
         read: message.read || false
     };
 }

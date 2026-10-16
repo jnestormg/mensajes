@@ -35,8 +35,15 @@ function registerSocketHandlers(io) {
 
             const pending = clientManager.getPendingMessages(name);
             if (pending.length > 0) {
-                pending.forEach((message) => socket.emit("receive-message", message));
-                clientManager.clearPendingMessages(name);
+                socket.emit("pending-messages", { messages: pending });
+                console.log(`[Mensajes] ${name} reconectado. Enviados ${pending.length} mensajes pendientes.`);
+            }
+
+            const deliveryReceipts = clientManager.getPendingDeliveryReceipts(name);
+            if (deliveryReceipts.length > 0) {
+                socket.emit("delivery-receipt", { messageIds: deliveryReceipts });
+                clientManager.removePendingDeliveryReceipts(name, deliveryReceipts);
+                console.log(`[Mensajes] ${name} reconectado. Enviados ${deliveryReceipts.length} delivery receipts pendientes.`);
             }
         });
 
@@ -77,40 +84,39 @@ function registerSocketHandlers(io) {
             }
 
             const target = clientManager.getClient(targetId);
-            const targetIsOnline = target && io.sockets.sockets.get(target.id);
+            const targetName = target ? target.name : (typeof data.targetName === "string" ? data.targetName : "");
 
-            if (targetIsOnline) {
-                const individualMessage = {
-                    id: generateId(),
-                    senderId: sender.id,
-                    senderName: sender.name,
-                    targetId: target.id,
-                    targetName: target.name,
-                    message,
-                    timestamp: new Date().toISOString()
-                };
-
-                io.to(target.id).emit("receive-message", individualMessage);
-                socket.emit("message-sent", individualMessage);
+            if (!targetName) {
+                socket.emit("send-error", { error: "El cliente destino ya no está disponible." });
                 return;
             }
 
-            const targetName = target ? target.name : (typeof data.targetName === "string" ? data.targetName : "");
-            const queuedMessage = {
+            const individualMessage = {
                 id: generateId(),
                 senderId: sender.id,
                 senderName: sender.name,
-                targetId: null,
+                targetId: target ? target.id : null,
                 targetName,
                 message,
                 timestamp: new Date().toISOString()
             };
 
-            if (clientManager.addPendingMessage(targetName, queuedMessage)) {
-                socket.emit("message-sent", { ...queuedMessage, queued: true });
-            } else {
+            if (!clientManager.addPendingMessage(targetName, individualMessage)) {
                 socket.emit("send-error", { error: "El cliente destino ya no está disponible." });
+                return;
             }
+
+            console.log(`[Mensajes] Mensaje ${individualMessage.id} de ${sender.name} para ${targetName} encolado.`);
+
+            const targetIsOnline = target && io.sockets.sockets.get(target.id);
+            if (targetIsOnline) {
+                io.to(target.id).emit("receive-message", individualMessage);
+                console.log(`[Mensajes] Mensaje ${individualMessage.id} enviado en tiempo real a ${targetName} (${target.id}).`);
+            } else {
+                console.log(`[Mensajes] Destinatario ${targetName} offline. Mensaje ${individualMessage.id} esperando reconexión.`);
+            }
+
+            socket.emit("message-sent", individualMessage);
         });
 
         socket.on("typing", (data) => {
@@ -152,6 +158,39 @@ function registerSocketHandlers(io) {
                 fromName: reader.name,
                 messageIds: data.messageIds
             });
+        });
+
+        socket.on("message-delivered", (data) => {
+            const client = clientManager.getClient(socket.id);
+            if (!client) return;
+            if (!data || !Array.isArray(data.messageIds) || data.messageIds.length === 0) return;
+
+            const senderName = typeof data.senderName === "string" ? data.senderName : "";
+            if (!senderName) return;
+
+            clientManager.removePendingMessages(client.name, data.messageIds);
+            console.log(`[Mensajes] ${client.name} confirmó entrega de mensajes ${data.messageIds.join(", ")} de ${senderName}.`);
+
+            const sender = clientManager.getClientByName(senderName);
+            if (sender && io.sockets.sockets.get(sender.id)) {
+                io.to(sender.id).emit("delivery-receipt", {
+                    fromName: client.name,
+                    messageIds: data.messageIds
+                });
+                console.log(`[Mensajes] Delivery receipt enviado a ${senderName}.`);
+            } else {
+                clientManager.addPendingDeliveryReceipt(senderName, data.messageIds);
+                console.log(`[Mensajes] Remitente ${senderName} offline. Delivery receipt guardado.`);
+            }
+        });
+
+        socket.on("pending-messages-acked", (data) => {
+            const client = clientManager.getClient(socket.id);
+            if (!client) return;
+            if (!data || !Array.isArray(data.messageIds) || data.messageIds.length === 0) return;
+
+            clientManager.removePendingMessages(client.name, data.messageIds);
+            console.log(`[Mensajes] ${client.name} confirmó lote pendiente: ${data.messageIds.join(", ")}.`);
         });
 
         socket.on("disconnect", () => {

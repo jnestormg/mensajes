@@ -415,21 +415,21 @@ body {
     background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
-.message .queued-tag {
-    color: var(--color-error);
-    font-weight: 600;
-    margin-left: 0.3rem;
-}
-
 .message .sent-tag {
     color: var(--color-text-muted);
     font-weight: 600;
     margin-left: 0.3rem;
 }
 
+.message .delivered-tag {
+    color: var(--color-text-muted);
+    font-weight: 400;
+    margin-left: 0.3rem;
+}
+
 .message .read-tag {
     color: var(--color-success);
-    font-weight: 600;
+    font-weight: 700;
     margin-left: 0.3rem;
 }
 
@@ -437,11 +437,11 @@ body {
     color: rgba(255, 255, 255, 0.85);
 }
 
-.message.sent .queued-tag {
-    color: #fecaca;
+.message.sent .sent-tag {
+    color: rgba(255, 255, 255, 0.75);
 }
 
-.message.sent .sent-tag {
+.message.sent .delivered-tag {
     color: rgba(255, 255, 255, 0.75);
 }
 
