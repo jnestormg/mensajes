@@ -1,4 +1,5 @@
 const clientManager = require("./clientManager");
+const pushManager = require("./pushManager");
 const { normalizeUsername, isValidUsername } = require("../config/usernames");
 
 const MESSAGE_MAX_LENGTH = 1000;
@@ -80,6 +81,14 @@ function registerSocketHandlers(io) {
                 };
                 sendEvent(io, "broadcast-message", globalMessage);
                 socket.emit("message-sent", globalMessage);
+
+                pushManager.broadcastNotification({
+                    title: "Mensaje para todos",
+                    body: `${sender.name}: ${message}`,
+                    conv: ALL,
+                    tag: globalMessage.id
+                }, sender.name).catch(() => {});
+
                 return;
             }
 
@@ -115,6 +124,13 @@ function registerSocketHandlers(io) {
             } else {
                 console.log(`[Mensajes] Destinatario ${targetName} offline. Mensaje ${individualMessage.id} esperando reconexión.`);
             }
+
+            pushManager.sendNotification(targetName, {
+                title: sender.name,
+                body: message,
+                conv: sender.name,
+                tag: individualMessage.id
+            }, sender.name).catch(() => {});
 
             socket.emit("message-sent", individualMessage);
         });

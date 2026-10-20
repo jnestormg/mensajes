@@ -46,6 +46,37 @@ self.addEventListener("fetch", (event) => {
     );
 });
 
+self.addEventListener("push", (event) => {
+    let data = {};
+    try {
+        data = event.data.json();
+    } catch (e) {}
+
+    const title = data.title || "Mensajería LAN";
+    const options = {
+        body: data.body || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag: data.tag || "lan-message",
+        renotify: true,
+        requireInteraction: false,
+        data: { conv: data.conv || null }
+    };
+
+    event.waitUntil(
+        self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+            const visibleClient = windowClients.find((client) => client.visibilityState === "visible");
+            if (visibleClient) {
+                windowClients.forEach((client) => {
+                    client.postMessage({ type: "push-message", data });
+                });
+                return;
+            }
+            return self.registration.showNotification(title, options);
+        })
+    );
+});
+
 self.addEventListener("notificationclick", (event) => {
     const conv = (event.notification.data && event.notification.data.conv) || null;
     event.notification.close();

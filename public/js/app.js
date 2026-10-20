@@ -178,9 +178,57 @@ function toggleTheme() {
 
 /* ------------------- Notificaciones nativas ------------------- */
 
+function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
 function registerServiceWorker() {
     if (!window.isSecureContext || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js")
+        .then((registration) => {
+            navigator.serviceWorker.addEventListener("message", (event) => {
+                if (event.data && event.data.type === "push-message") {
+                    const data = event.data.data || {};
+                    showToast(data.title, data.body, data.conv);
+                    playAlertSound();
+                }
+            });
+            return registration;
+        })
+        .catch(() => {});
+}
+
+async function subscribeToPush(registration) {
+    if (!canUseNativeNotifications()) return;
+    if (Notification.permission !== "granted") return;
+    if (!registration.pushManager) return;
+    if (!myName) return;
+
+    try {
+        const response = await fetch("/api/vapid-public-key");
+        const { publicKey } = await response.json();
+        if (!publicKey) return;
+
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+
+        await fetch("/api/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: myName, subscription })
+        });
+    } catch (e) {}
+}
+
+async function subscribeToPushOnRegistration() {
+    if (!("serviceWorker" in navigator)) return;
+    const registration = await navigator.serviceWorker.ready;
+    subscribeToPush(registration);
 }
 
 function canUseNativeNotifications() {
@@ -215,7 +263,11 @@ function showNativeNotification(title, body, conv, tag) {
 function requestNotificationPermission() {
     if (!canUseNativeNotifications()) return;
     if (Notification.permission !== "default") return;
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+            subscribeToPushOnRegistration();
+        }
+    }).catch(() => {});
 }
 
 async function installApp() {
@@ -262,6 +314,7 @@ function connect() {
             selectConversation(pendingOpenConv);
             pendingOpenConv = null;
         }
+        subscribeToPushOnRegistration();
     });
 
     socket.on("register-error", (data) => {
@@ -583,7 +636,7 @@ function createClientItem(client, key) {
 
     const stateLabel = client.online ? null : document.createElement("span");
     if (stateLabel) {
-        stateLabel.textContent = "desconectado";
+        stateLabel.textContent = formatLastSeen(client.lastSeen);
         stateLabel.className = "offline-label";
     }
 
@@ -780,6 +833,24 @@ function formatTime(timestamp) {
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) return "";
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatLastSeen(timestamp) {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "desconectado";
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return "ahora";
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    if (diffHour < 24) return `hace ${diffHour} h`;
+    if (diffDay === 1) return `ayer ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    return date.toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 /* ------------------- Historial persistente (localStorage) ------------------- */

@@ -7,7 +7,9 @@ const express = require("express");
 const { Server } = require("socket.io");
 const config = require("./config/config")();
 const { ensureCert, getLanIps } = require("../scripts/generate-cert");
+const { setVapidDetails } = require("../scripts/generate-vapid");
 const routes = require("./routes/health.routes");
+const pushRoutes = require("./routes/push.routes");
 const socketHandler = require("./sockets/socketHandler");
 
 const INTERNAL_HTTPS_PORT = 3443;
@@ -100,6 +102,11 @@ try {
         console.warn("Ejecuta 'npm run trust' en cada equipo de la red una vez.");
     }
 
+    const vapidKeys = setVapidDetails(config.vapidSubject);
+    if (vapidKeys.generated) {
+        console.warn("Se generaron nuevas claves VAPID para notificaciones push.");
+    }
+
     const key = fs.readFileSync(config.sslKey);
     const cert = fs.readFileSync(config.sslCert);
 
@@ -114,7 +121,9 @@ try {
             res.setHeader("Cache-Control", "no-cache, must-revalidate");
         }
     }));
+    app.use(express.json());
     app.use(routes);
+    app.use(pushRoutes(vapidKeys.publicKey || config.vapidPublicKey));
 
     socketHandler.registerSocketHandlers(io);
 

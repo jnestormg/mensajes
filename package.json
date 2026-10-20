@@ -9,7 +9,8 @@
     "test": "node --test",
     "icons": "node scripts/generate-icons.js",
     "cert": "node scripts/generate-cert.js",
-    "trust": "node scripts/trust-cert.js"
+    "trust": "node scripts/trust-cert.js",
+    "vapid": "node scripts/generate-vapid.js"
   },
   "keywords": [
     "lan",
@@ -23,6 +24,7 @@
     "express": "^5.2.1",
     "selfsigned": "^2.4.1",
     "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "web-push": "^3.6.7"
   }
 }

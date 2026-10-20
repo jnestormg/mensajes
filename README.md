@@ -107,13 +107,16 @@ Al recibir un mensaje se activan varías alertas dentro del navegador (el botón
 
 Estas alertas funcionan en **todas** las computadoras sin importar el certificado.
 
-**Notificaciones nativas del sistema operativo** (popups de Windows/Linux): aparecen en **todas** las PCs cuando el certificado está confiado (`npm run trust`, una vez por equipo). En equipos donde no se confió, solo se ven las alertas internas. Al recibir el primer mensaje, la app avisa cómo activarlas.
+**Notificaciones nativas del sistema operativo** (popups de Windows/Linux/Android): aparecen cuando la app está activa o, en dispositivos compatibles, incluso con la pantalla apagada o el navegador cerrado mediante **Web Push**.
 
-Notas sobre el popup de Chrome:
+Notas sobre las notificaciones:
 
-- El popup nativo aparece en la computadora que **recibe** el mensaje, no en la que lo envía.
+- El popup nativo aparece en la computadora/dispositivo que **recibe** el mensaje, no en la que lo envía.
 - Al conectar, la app pide permiso automáticamente; si está denegado, avisa cómo activarlo.
-- Chrome también necesita que Windows permita las notificaciones: **Configuración de Windows > Sistema > Notificaciones > activar Chrome** (y desactivar "Asistente de enfoque"/"No molestar").
+- **Android + Chrome**: las notificaciones push funcionan incluso sin instalar la PWA, siempre que el permiso de notificaciones esté concedido.
+- **iOS/Safari**: las notificaciones push solo funcionan si la PWA está instalada en la pantalla de inicio y el dispositivo tiene iOS 16.4 o superior.
+- En escritorio, Chrome también necesita que Windows permita las notificaciones: **Configuración de Windows > Sistema > Notificaciones > activar Chrome** (y desactivar "Asistente de enfoque"/"No molestar").
+- Las claves VAPID para Web Push se generan automáticamente al iniciar el servidor.
 
 ### Conversaciones separadas
 
@@ -121,9 +124,9 @@ Cada cliente y **Todos** tienen su propia conversación e historial. Los mensaje
 
 ### Entrega de mensajes a clientes desconectados
 
-- Los clientes que se desconectaron siguen visibles en el panel (marcados como **desconectado**).
-- Si envías un mensaje a uno de ellos, el servidor lo **guarda en memoria** y lo entrega automáticamente cuando vuelve a conectarse.
-- El remitente ve el mensaje marcado como **pendiente**.
+- Los clientes que se desconectaron siguen visibles en el panel con un indicador de **última vez visto** (por ejemplo: "hace 2 min", "ayer 10:30").
+- Si envías un mensaje privado a uno de ellos, el servidor lo **guarda en memoria** y lo entrega automáticamente cuando vuelve a conectarse.
+- El remitente ve el mensaje marcado como **✓ Enviado** y, cuando el destinatario lo recibe, pasa a **✓✓ Entregado**; si lo abre, pasa a **✓✓ Visto**.
 - Los mensajes globales no se guardan; solo se entregan a los clientes conectados en el momento del envío.
 
 ### Historial guardado en cada computadora
@@ -153,6 +156,9 @@ La app es una Aplicación Web Progresiva (PWA), instalable como programa nativo 
 | GET    | `/`             | Sirve la aplicación web              |
 | GET    | `/api/health`   | Estado del servidor                  |
 | GET    | `/api/clients`  | Lista de clientes conocidos (conectados y desconectados) |
+| GET    | `/api/vapid-public-key` | Clave pública VAPID para suscripción push       |
+| POST   | `/api/subscribe` | Registrar suscripción push de un navegador        |
+| POST   | `/api/unsubscribe` | Eliminar suscripción push de un navegador       |
 
 ## Notas
 
