@@ -24,6 +24,9 @@ HOST=0.0.0.0
 
 - `PORT`: puerto del servidor (por defecto `3000`).
 - `HOST`: dirección donde escucha (por defecto `0.0.0.0`, todas las interfaces).
+- `ADMIN_TOKEN`: clave del panel de administración. Genera una con `npm run admin-token`. Si está vacía, el panel queda desactivado.
+
+Las claves VAPID de las notificaciones push se generan solas en el primer arranque si no existen en `.env`.
 
 ## Desarrollo
 
@@ -36,6 +39,23 @@ npm run dev
 ```bash
 npm start
 ```
+
+## Docker
+
+```bash
+docker compose up -d --build
+```
+
+El contenedor lee `ADMIN_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` desde el archivo `.env` de la carpeta del proyecto. Así las claves de notificaciones no cambian al recrear el contenedor.
+
+## Administración
+
+El botón 🔑 del encabezado abre el panel de administración. Pide la clave `ADMIN_TOKEN` una vez por sesión.
+
+- Para crear la clave: `npm run admin-token`.
+- Para cambiarla: `npm run admin-token -- --force`.
+- **Eliminar** expulsa al usuario y lo olvida hasta que reinicies el servidor; después puede volver a entrar con el mismo nombre.
+- El panel no se expone a Internet: está pensado para usarse dentro de la LAN.
 
 ## Acceso desde la misma computadora
 
@@ -159,8 +179,11 @@ La app es una Aplicación Web Progresiva (PWA), instalable como programa nativo 
 | GET    | `/api/vapid-public-key` | Clave pública VAPID para suscripción push       |
 | POST   | `/api/subscribe` | Registrar suscripción push de un navegador        |
 | POST   | `/api/unsubscribe` | Eliminar suscripción push de un navegador       |
+| GET    | `/api/admin/check` | Verifica la clave de administrador (cabecera `X-Admin-Token`) |
+| DELETE | `/api/admin/users/:name` | Expulsa y olvida a un usuario (requiere `X-Admin-Token`) |
 
 ## Notas
 
 - Los mensajes se guardan solo en memoria mientras el servidor esté ejecutándose. Si el servidor se reinicia, se pierden.
+- La eliminación de usuarios desde el panel de administración tampoco es permanente: al reiniciar el servidor, la lista vuelve a empezar vacía.
 - No se requiere Internet; la comunicación ocurre exclusivamente dentro de la red local.

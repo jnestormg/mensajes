@@ -11,6 +11,8 @@ const { setVapidDetails } = require("../scripts/generate-vapid");
 const routes = require("./routes/health.routes");
 const pushRoutes = require("./routes/push.routes");
 const socketHandler = require("./sockets/socketHandler");
+const clientManager = require("./sockets/clientManager");
+const createAdminRoutes = require("./routes/admin.routes");
 
 const INTERNAL_HTTPS_PORT = 3443;
 const TLS_HANDSHAKE_BYTE = 0x16;
@@ -124,6 +126,7 @@ try {
     app.use(express.json());
     app.use(routes);
     app.use(pushRoutes(vapidKeys.publicKey || config.vapidPublicKey));
+    app.use(createAdminRoutes(clientManager, io));
 
     socketHandler.registerSocketHandlers(io);
 

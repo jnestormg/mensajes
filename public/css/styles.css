@@ -565,3 +565,91 @@ body {
         flex-shrink: 0;
     }
 }
+
+/* Panel de administración */
+.admin-panel {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    width: min(340px, calc(100vw - 2rem));
+    max-height: 60vh;
+    overflow: auto;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.8rem;
+    box-shadow: var(--shadow-soft);
+    z-index: 1500;
+}
+
+.admin-panel-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-primary);
+}
+
+.admin-panel-sub {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.admin-users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.5rem;
+}
+
+.admin-user-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-bg);
+}
+
+.admin-user-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--color-text);
+}
+
+.admin-empty {
+    padding: 0.8rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+.admin-del-btn {
+    margin-left: auto;
+    border: none;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0 0.4rem;
+}
+
+.admin-del-btn:hover {
+    background-color: var(--color-sidebar);
+    color: var(--color-error);
+}
+
+.client-item.selected .admin-del-btn {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.client-item.selected .admin-del-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}

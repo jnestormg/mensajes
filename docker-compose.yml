@@ -10,6 +10,10 @@ services:
       HOST: 0.0.0.0
       NODE_ENV: production
       AUTO_OPEN: "0"
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@localhost}
     volumes:
       - certs_data:/app/certs
 

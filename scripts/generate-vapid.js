@@ -9,6 +9,17 @@ function generateVapidKeys() {
 }
 
 function ensureVapidKeys() {
+    const processPublic = String(process.env.VAPID_PUBLIC_KEY || "").trim();
+    const processPrivate = String(process.env.VAPID_PRIVATE_KEY || "").trim();
+
+    if (processPublic && processPrivate) {
+        return {
+            publicKey: processPublic,
+            privateKey: processPrivate,
+            generated: false
+        };
+    }
+
     const envContent = fs.existsSync(ENV_PATH) ? fs.readFileSync(ENV_PATH, "utf8") : "";
     const publicMatch = envContent.match(/^VAPID_PUBLIC_KEY=(.+)$/m);
     const privateMatch = envContent.match(/^VAPID_PRIVATE_KEY=(.+)$/m);

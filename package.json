@@ -6,11 +6,12 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "icons": "node scripts/generate-icons.js",
     "cert": "node scripts/generate-cert.js",
     "trust": "node scripts/trust-cert.js",
-    "vapid": "node scripts/generate-vapid.js"
+    "vapid": "node scripts/generate-vapid.js",
+    "admin-token": "node scripts/generate-admin-token.js"
   },
   "keywords": [
     "lan",

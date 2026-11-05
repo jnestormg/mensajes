@@ -25,12 +25,15 @@ const statusText = document.getElementById("status-text");
 const muteBtn = document.getElementById("mute-btn");
 const themeBtn = document.getElementById("theme-btn");
 const installBtn = document.getElementById("install-btn");
+const adminBtn = document.getElementById("admin-btn");
 const toastContainer = document.getElementById("toast-container");
+const ADMIN_TOKEN_KEY = "lan-admin-token";
 
 let socket = null;
 let myId = null;
 let myName = null;
 let clients = [];
+let isAdminUser = false;
 let selectedTargetKey = ALL;
 let selectedTargetId = ALL;
 let conversationHistory = new Map();
@@ -71,6 +74,7 @@ function init() {
     sendBtn.addEventListener("click", sendMessage);
     muteBtn.addEventListener("click", toggleMute);
     installBtn.addEventListener("click", installApp);
+    if (adminBtn) adminBtn.addEventListener("click", handleAdminButton);
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             if (getUnreadTotal() > 0) startTitleFlash();
@@ -114,6 +118,8 @@ function init() {
         localStorage.removeItem("lan-name");
         location.reload();
     });
+
+    if (getAdminToken()) checkAdmin();
 }
 
 function keepInputVisible() {
@@ -338,6 +344,7 @@ function connect() {
             }
         }
         renderClients();
+        onClientsUpdatedForAdmin();
     });
 
     socket.on("client-connected", (client) => {
@@ -580,6 +587,7 @@ function enterApp() {
     appScreen.classList.remove("hidden");
     currentUserEl.textContent = `Conectado como ${myName}`;
     renderClients();
+    if (isAdminUser) showAdminPanel();
     selectConversation(ALL);
 }
 
@@ -649,6 +657,19 @@ function createClientItem(client, key) {
     if (stateLabel) li.appendChild(stateLabel);
     if (youTag) li.appendChild(youTag);
     if (badge) li.appendChild(badge);
+
+    if (isAdminUser && key !== null && key !== ALL && !client.self && client.name !== myName) {
+        const delBtn = document.createElement("button");
+        delBtn.className = "admin-del-btn";
+        delBtn.type = "button";
+        delBtn.textContent = "✕";
+        delBtn.title = "Eliminar usuario";
+        delBtn.onclick = (e) => {
+            e.stopPropagation();
+            removeUser(client.name);
+        };
+        li.appendChild(delBtn);
+    }
 
     return li;
 }
@@ -1102,6 +1123,165 @@ function stopTitleFlash() {
     if (!flashInterval) return;
     clearInterval(flashInterval);
     flashInterval = null;
+}
+
+/* ----------------------- Administración ----------------------- */
+
+function getAdminToken() {
+    try {
+        return sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
+    } catch (e) {
+        return "";
+    }
+}
+
+function setAdminToken(token) {
+    try {
+        if (token) {
+            sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+        } else {
+            sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        }
+    } catch (e) {}
+}
+
+function revokeAdminAccess() {
+    isAdminUser = false;
+    setAdminToken("");
+    const panel = document.getElementById("admin-panel");
+    if (panel) panel.style.display = "none";
+    renderClients();
+}
+
+function adminRequest(path, options) {
+    const opts = options || {};
+    const headers = Object.assign({}, opts.headers || {});
+    const token = getAdminToken();
+    if (token) headers["X-Admin-Token"] = token;
+    return fetch(path, Object.assign({}, opts, { headers, cache: "no-store" }));
+}
+
+async function handleAdminButton() {
+    if (isAdminUser) {
+        const panel = document.getElementById("admin-panel");
+        if (panel && panel.style.display !== "none") {
+            panel.style.display = "none";
+            return;
+        }
+        showAdminPanel();
+        return;
+    }
+
+    const token = window.prompt("Clave de administrador:");
+    if (!token) return;
+
+    const ok = await checkAdmin(token.trim());
+    if (!ok) {
+        alert("Clave incorrecta o administración desactivada.");
+    }
+}
+
+async function checkAdmin(token) {
+    if (token) setAdminToken(token);
+    if (!getAdminToken()) return false;
+
+    try {
+        const res = await adminRequest("/api/admin/check");
+        if (!res.ok) {
+            if (res.status === 401) revokeAdminAccess();
+            return false;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        if (data && data.isAdmin) {
+            isAdminUser = true;
+            if (adminBtn) adminBtn.title = "Panel de administración";
+            if (appScreen && !appScreen.classList.contains("hidden")) {
+                renderClients();
+                showAdminPanel();
+            }
+            return true;
+        }
+    } catch (e) {}
+    return false;
+}
+
+function showAdminPanel() {
+    const panel = document.getElementById("admin-panel");
+    if (panel) panel.style.display = "block";
+    renderAdminList();
+}
+
+function renderAdminList() {
+    const listEl = document.getElementById("admin-users-list");
+    if (!listEl) return;
+
+    const users = Array.isArray(clients)
+        ? clients.filter((client) => client.name !== myName)
+        : [];
+
+    users.sort((a, b) => {
+        if (b.online !== a.online) return (b.online ? 1 : 0) - (a.online ? 1 : 0);
+        return String(a.name).localeCompare(String(b.name));
+    });
+
+    listEl.innerHTML = "";
+
+    if (users.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "admin-empty";
+        empty.textContent = "Sin usuarios conocidos";
+        listEl.appendChild(empty);
+        return;
+    }
+
+    users.forEach((user) => {
+        const row = document.createElement("div");
+        row.className = "admin-user-row";
+
+        const userName = document.createElement("span");
+        userName.className = "admin-user-name";
+        userName.textContent = `${user.name} ${user.online ? "(en línea)" : "(desconectado)"}`;
+
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "admin-del-btn";
+        removeBtn.type = "button";
+        removeBtn.textContent = "✕";
+        removeBtn.title = "Eliminar usuario";
+        removeBtn.setAttribute("aria-label", "Eliminar usuario");
+        removeBtn.addEventListener("click", () => removeUser(user.name));
+
+        row.appendChild(userName);
+        row.appendChild(removeBtn);
+        listEl.appendChild(row);
+    });
+}
+
+async function removeUser(name) {
+    if (!name) return;
+
+    const message = `¿Expulsar y olvidar a "${name}"?\n\n` +
+        "Si está conectado se desconectará. Podrá volver a entrar mientras el servidor siga encendido.";
+    if (!confirm(message)) return;
+
+    try {
+        const res = await adminRequest("/api/admin/users/" + encodeURIComponent(name), { method: "DELETE" });
+        if (!res.ok) {
+            if (res.status === 401) revokeAdminAccess();
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Error al eliminar");
+        }
+    } catch (e) {
+        alert("Error al eliminar");
+    }
+}
+
+function onClientsUpdatedForAdmin() {
+    if (!isAdminUser) return;
+    const panel = document.getElementById("admin-panel");
+    if (panel && panel.style.display !== "none") {
+        renderAdminList();
+    }
 }
 
 init();

@@ -53,6 +53,10 @@ function getSubscriptions(name) {
     return subscriptions.get(nameKey(name)) || [];
 }
 
+function removeAllSubscriptions(name) {
+    subscriptions.delete(nameKey(name));
+}
+
 function removeSubscriptionByEndpoint(endpoint) {
     subscriptions.forEach((list, key) => {
         const filtered = list.filter((s) => s.endpoint !== endpoint);
@@ -124,6 +128,7 @@ async function broadcastNotification(payload, excludeName) {
 module.exports = {
     addSubscription,
     removeSubscription,
+    removeAllSubscriptions,
     getSubscriptions,
     sendNotification,
     broadcastNotification

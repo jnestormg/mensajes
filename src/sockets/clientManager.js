@@ -39,13 +39,13 @@ function getClients() {
 }
 
 function getKnownClients() {
-    const onlineIds = new Set(clients.map((client) => client.id));
     return Array.from(knownClients.values()).map((known) => {
         const onlineClient = clients.find((client) => nameKey(client.name) === nameKey(known.name));
         return {
             id: onlineClient ? onlineClient.id : null,
             name: known.name,
-            online: !!onlineClient && onlineIds.has(onlineClient.id)
+            online: !!onlineClient,
+            lastSeen: known.lastSeen
         };
     });
 }
@@ -139,6 +139,45 @@ function removePendingDeliveryReceipts(senderName, messageIds) {
     }
 }
 
+function removeUserByName(name, io) {
+    if (!name) return { removed: false, reason: "invalid" };
+
+    const key = nameKey(name);
+    const known = knownClients.get(key);
+    const onlineClient = clients.find((client) => nameKey(client.name) === key);
+
+    if (!known && !onlineClient) {
+        return { removed: false, name };
+    }
+
+    const removedName = onlineClient ? onlineClient.name : known.name;
+
+    if (onlineClient) {
+        const index = clients.findIndex((client) => client.id === onlineClient.id);
+        if (index !== -1) clients.splice(index, 1);
+
+        try {
+            const socket = io?.sockets?.sockets?.get?.(onlineClient.id);
+            if (socket) socket.disconnect(true);
+        } catch (e) {}
+    }
+
+    knownClients.delete(key);
+    pendingMessages.delete(key);
+    pendingDeliveryReceipts.delete(key);
+
+    if (io) {
+        try {
+            io.emit("clients-updated", getKnownClients());
+            if (onlineClient) {
+                io.emit("client-disconnected", { id: onlineClient.id, name: removedName });
+            }
+        } catch (e) {}
+    }
+
+    return { removed: true, name: removedName };
+}
+
 module.exports = {
     NAME_MAX_LENGTH,
     MAX_PENDING_PER_CLIENT,
@@ -157,5 +196,6 @@ module.exports = {
     clearPendingMessages,
     addPendingDeliveryReceipt,
     getPendingDeliveryReceipts,
-    removePendingDeliveryReceipts
+    removePendingDeliveryReceipts,
+    removeUserByName
 };
